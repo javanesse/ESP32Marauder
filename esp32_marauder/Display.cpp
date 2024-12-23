@@ -1,15 +1,7 @@
 #include "Display.h"
+#include "lang_var.h"
 
-
-/*
-Big thanks to bodmer for having great TFT and JPEG libraries
-
-https://github.com/bodmer
-*/
-
-//PROGMEM lv_obj_t * slider_label;
-//PROGMEM lv_obj_t * ta1;
-//PROGMEM lv_obj_t * ta2;
+#ifdef HAS_SCREEN
 
 Display::Display()
 {
@@ -22,127 +14,58 @@ void Display::RunSetup()
 
   // Need to declare new
   display_buffer = new LinkedList<String>();
+
+  #ifdef SCREEN_BUFFER
+    screen_buffer = new LinkedList<String>();
+  #endif
   
   tft.init();
-  tft.setRotation(0); // Portrait
+  #ifndef MARAUDER_M5STICKC
+    tft.setRotation(0); // Portrait
+  #endif
+
+  #ifdef MARAUDER_M5STICKC
+    tft.setRotation(1);
+  #endif
+
+  #ifdef MARAUDER_REV_FEATHER
+    tft.setRotation(1);
+  #endif
 
   tft.setCursor(0, 0);
-  //tft.setFreeFont(&FreeMonoBold9pt7b);
 
-  // Calibration data
-  //uint16_t calData[5] = { 390, 3516, 253, 3520, 7 }; tft.setRotation(1); // Portrait
+  #ifdef HAS_ILI9341
 
-  #ifdef TFT_SHIELD
-    uint16_t calData[5] = { 275, 3494, 361, 3528, 4 }; // tft.setRotation(0); // Portrait with TFT Shield
-    Serial.println(F("Using TFT Shield"));
-  #else if defined(TFT_DIY)
-    uint16_t calData[5] = { 339, 3470, 237, 3438, 2 }; // tft.setRotation(0); // Portrait with DIY TFT
-    Serial.println(F("Using TFT DIY"));
+    #ifdef TFT_SHIELD
+      uint16_t calData[5] = { 275, 3494, 361, 3528, 4 }; // tft.setRotation(0); // Portrait with TFT Shield
+      //Serial.println(F("Using TFT Shield"));
+    #else if defined(TFT_DIY)
+      uint16_t calData[5] = { 339, 3470, 237, 3438, 2 }; // tft.setRotation(0); // Portrait with DIY TFT
+      //Serial.println(F("Using TFT DIY"));
+    #endif
+    tft.setTouch(calData);
+
   #endif
-  tft.setTouch(calData);
 
   //tft.fillScreen(TFT_BLACK);
   clearScreen();
 
-  Serial.println("SPI_FREQUENCY: " + (String)SPI_FREQUENCY);
-  Serial.println("SPI_READ_FREQUENCY: " + (String)SPI_READ_FREQUENCY);
-  Serial.println("SPI_TOUCH_FREQUENCY: " + (String)SPI_TOUCH_FREQUENCY);
-
-  
-  // Initialize file system
-  // This should probably have its own class
-  //if (!SPIFFS.begin()) {
-  //  Serial.println(F("SPIFFS initialisation failed!"));
-    //while (1) yield(); // Stay here twiddling thumbs waiting
-  //}
-
-  //this->initLVGL();
-
-
-  // Draw the title screen
-  //drawJpeg("/marauder3L.jpg", 0 , 0);     // 240 x 320 image
-
-  //showCenterText(version_number, 250);
-  //tft.drawCentreString(version_number, 120, 250, 2);
-
-  //digitalWrite(TFT_BL, HIGH);
-
-  //delay(5000);
+  //Serial.println("SPI_FREQUENCY: " + (String)SPI_FREQUENCY);
+  //Serial.println("SPI_READ_FREQUENCY:" + (String)SPI_READ_FREQUENCY);
+  //Serial.println("SPI_TOUCH_FREQUENCY: " + (String)SPI_TOUCH_FREQUENCY);
 
   #ifdef KIT
     pinMode(KIT_LED_BUILTIN, OUTPUT);
   #endif
+
+  #ifdef MARAUDER_REV_FEATHER
+    pinMode(7, OUTPUT);
+
+    delay(10);
+
+    digitalWrite(7, HIGH);
+  #endif
 }
-
-/* Interrupt driven periodic handler */
-/*
-void Display::lv_tick_handler()
-{
-  lv_tick_inc(LVGL_TICK_PERIOD);
-}*/
-
-/* Display flushing */
-/*
-void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
-{
-  extern Display display_obj;
-  uint16_t c;
-
-  display_obj.tft.startWrite();
-  display_obj.tft.setAddrWindow(area->x1, area->y1, (area->x2 - area->x1 + 1), (area->y2 - area->y1 + 1));
-  for (int y = area->y1; y <= area->y2; y++) {
-    for (int x = area->x1; x <= area->x2; x++) {
-      c = color_p->full;
-      display_obj.tft.writeColor(c, 1);
-      color_p++;
-    }
-  }
-  display_obj.tft.endWrite();
-  lv_disp_flush_ready(disp);
-}
-
-
-bool my_touchpad_read(lv_indev_drv_t * indev_driver, lv_indev_data_t * data)
-{
-  extern Display display_obj;
-  
-  uint16_t touchX, touchY;
-
-  bool touched = display_obj.tft.getTouch(&touchX, &touchY, 600);
-
-  if(!touched)
-  {
-    return false;
-  }
-
-  if(touchX>WIDTH_1 || touchY > HEIGHT_1)
-  {
-    Serial.println("Y or y outside of expected parameters..");
-    Serial.print("y:");
-    Serial.print(touchX);
-    Serial.print(" x:");
-    Serial.print(touchY);
-  }
-  else
-  {
-
-    data->state = touched ? LV_INDEV_STATE_PR : LV_INDEV_STATE_REL; 
-
-    //if(data->state == LV_INDEV_STATE_PR) touchpad_get_xy(&last_x, &last_y);
-   
-    data->point.x = touchX;
-    data->point.y = touchY;
-
-    Serial.print("Data x");
-    Serial.println(touchX);
-    
-    Serial.print("Data y");
-    Serial.println(touchY);
-
-  }
-
-  return false;
-}*/
 
 void Display::drawFrame()
 {
@@ -156,7 +79,7 @@ void Display::tftDrawRedOnOffButton() {
   tft.setTextColor(TFT_WHITE);
   tft.setTextSize(2);
   tft.setTextDatum(MC_DATUM);
-  tft.drawString("ON", GREENBUTTON_X + (GREENBUTTON_W / 2), GREENBUTTON_Y + (GREENBUTTON_H / 2));
+  tft.drawString(text03, GREENBUTTON_X + (GREENBUTTON_W / 2), GREENBUTTON_Y + (GREENBUTTON_H / 2));
   this->SwitchOn = false;
 }
 
@@ -167,7 +90,7 @@ void Display::tftDrawGreenOnOffButton() {
   tft.setTextColor(TFT_WHITE);
   tft.setTextSize(2);
   tft.setTextDatum(MC_DATUM);
-  tft.drawString("OFF", REDBUTTON_X + (REDBUTTON_W / 2) + 1, REDBUTTON_Y + (REDBUTTON_H / 2));
+  tft.drawString(text04, REDBUTTON_X + (REDBUTTON_W / 2) + 1, REDBUTTON_Y + (REDBUTTON_H / 2));
   this->SwitchOn = true;
 }
 
@@ -269,7 +192,7 @@ void Display::tftDrawYScaleButtons(byte y_scale)
 void Display::tftDrawChannelScaleButtons(int set_channel)
 {
   tft.drawFastVLine(178, 0, 20, TFT_WHITE);
-  tft.setCursor(145, 21); tft.setTextColor(TFT_WHITE); tft.setTextSize(1); tft.print("Channel:"); tft.print(set_channel);
+  tft.setCursor(145, 21); tft.setTextColor(TFT_WHITE); tft.setTextSize(1); tft.print(text10); tft.print(set_channel);
 
   key[4].initButton(&tft, // channel - box
                         164,
@@ -339,56 +262,83 @@ void Display::touchToExit()
 {
   tft.setTextColor(TFT_BLACK, TFT_LIGHTGREY);
   tft.fillRect(0,32,HEIGHT_1,16, TFT_LIGHTGREY);
-  tft.drawCentreString("Touch screen to exit",120,32,2);
+  tft.drawCentreString(text11,120,32,2);
 }
 
 
 // Function to just draw the screen black
 void Display::clearScreen()
 {
-  Serial.println(F("clearScreen()"));
+  //Serial.println(F("clearScreen()"));
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0);
 }
+
+#ifdef SCREEN_BUFFER
+void Display::scrollScreenBuffer(bool down) {
+  // Scroll screen normal direction (Up)
+  if (!down) {
+    this->screen_buffer->shift();
+  }
+}
+#endif
 
 void Display::displayBuffer(bool do_clear)
 {
   if (this->display_buffer->size() > 0)
   {
     delay(1);
-    
+
     while (display_buffer->size() > 0)
     {
-      xPos = 0;
-      if ((display_buffer->size() > 0) && (!loading))
-      {
-        printing = true;
-        delay(print_delay_1);
-        yDraw = scroll_line(TFT_RED);
-        tft.setCursor(xPos, yDraw);
-        tft.setTextColor(TFT_GREEN, TFT_BLACK);
-        tft.print(display_buffer->shift());
-        printing = false;
-        delay(print_delay_2);
-      }
-      if (!tteBar)
-        blank[(18+(yStart - TOP_FIXED_AREA) / TEXT_HEIGHT)%19] = xPos;
-      else
-        blank[(18+(yStart - TOP_FIXED_AREA_2) / TEXT_HEIGHT)%19] = xPos;
+
+      #ifndef SCREEN_BUFFER
+        xPos = 0;
+        if ((display_buffer->size() > 0) && (!loading))
+        {
+          printing = true;
+          delay(print_delay_1);
+          yDraw = scroll_line(TFT_RED);
+          tft.setCursor(xPos, yDraw);
+          tft.setTextColor(TFT_GREEN, TFT_BLACK);
+          tft.print(display_buffer->shift());
+          printing = false;
+          delay(print_delay_2);
+        }
+        if (!tteBar)
+          blank[(18+(yStart - TOP_FIXED_AREA) / TEXT_HEIGHT)%19] = xPos;
+        else
+          blank[(18+(yStart - TOP_FIXED_AREA_2) / TEXT_HEIGHT)%19] = xPos;
+      #else
+        xPos = 0;
+        if (this->screen_buffer->size() >= MAX_SCREEN_BUFFER) 
+          this->scrollScreenBuffer();
+
+        screen_buffer->add(display_buffer->shift());
+
+        for (int i = 0; i < this->screen_buffer->size(); i++) {
+          tft.setCursor(xPos, (i * 12) + (SCREEN_HEIGHT / 6));
+          for (int x = 0; x < TFT_WIDTH / CHAR_WIDTH; x++)
+            tft.print(" ");
+          tft.setCursor(xPos, (i * 12) + (SCREEN_HEIGHT / 6));
+          tft.setTextColor(TFT_GREEN, TFT_BLACK);
+          tft.print(this->screen_buffer->get(i));
+        }
+      #endif
     }
   }
 }
 
 void Display::showCenterText(String text, int y)
 {
-  tft.setCursor((SCREEN_WIDTH - (text.length() * 6)) / 2, y);
+  tft.setCursor((SCREEN_WIDTH - (text.length() * (6 * BANNER_TEXT_SIZE))) / 2, y);
   tft.println(text);
 }
 
 
 void Display::initScrollValues(bool tte)
 {
-  Serial.println(F("initScrollValues()"));
+  //Serial.println(F("initScrollValues()"));
   yDraw = YMAX - BOT_FIXED_AREA - TEXT_HEIGHT;
 
   xPos = 0;
@@ -444,30 +394,35 @@ int Display::scroll_line(uint32_t color) {
 
 // Function to setup hardware scroll for TFT screen
 void Display::setupScrollArea(uint16_t tfa, uint16_t bfa) {
-  Serial.println(F("setupScrollArea()"));
-  Serial.println("   tfa: " + (String)tfa);
-  Serial.println("   bfa: " + (String)bfa);
-  Serial.println("yStart: " + (String)this->yStart);
-  tft.writecommand(ILI9341_VSCRDEF); // Vertical scroll definition
-  tft.writedata(tfa >> 8);           // Top Fixed Area line count
-  tft.writedata(tfa);
-  tft.writedata((YMAX-tfa-bfa)>>8);  // Vertical Scrolling Area line count
-  tft.writedata(YMAX-tfa-bfa);
-  tft.writedata(bfa >> 8);           // Bottom Fixed Area line count
-  tft.writedata(bfa);
+  //Serial.println(F("setupScrollArea()"));
+  //Serial.println("   tfa: " + (String)tfa);
+  //Serial.println("   bfa: " + (String)bfa);
+  //Serial.println("yStart: " + (String)this->yStart);
+  #ifdef HAS_ILI9341
+    tft.writecommand(ILI9341_VSCRDEF); // Vertical scroll definition
+    tft.writedata(tfa >> 8);           // Top Fixed Area line count
+    tft.writedata(tfa);
+    tft.writedata((YMAX-tfa-bfa)>>8);  // Vertical Scrolling Area line count
+    tft.writedata(YMAX-tfa-bfa);
+    tft.writedata(bfa >> 8);           // Bottom Fixed Area line count
+    tft.writedata(bfa);
+  #endif
 }
 
 
 void Display::scrollAddress(uint16_t vsp) {
-  tft.writecommand(ILI9341_VSCRSADD); // Vertical scrolling pointer
-  tft.writedata(vsp>>8);
-  tft.writedata(vsp);
+  #ifdef HAS_ILI9341
+    tft.writecommand(ILI9341_VSCRSADD); // Vertical scrolling pointer
+    tft.writedata(vsp>>8);
+    tft.writedata(vsp);
+  #endif
 }
 
 
 
 
 // JPEG_functions
+/*
 void Display::drawJpeg(const char *filename, int xpos, int ypos) {
 
   // Open the named file (the Jpeg decoder library will close it after rendering image)
@@ -485,7 +440,7 @@ void Display::drawJpeg(const char *filename, int xpos, int ypos) {
   // the filename can be a String or character array type:
 
   //boolean decoded = JpegDec.decodeFsFile(filename);  // or pass the filename (leading / distinguishes SPIFFS files)
-  boolean decoded = JpegDec.decodeArray(MarauderTitle, 13578);
+  boolean decoded = JpegDec.decodeArray(MarauderTitle, MARAUDER_TITLE_BYTES);
 
   if (decoded) {
     // print information about the image to the serial port
@@ -494,18 +449,19 @@ void Display::drawJpeg(const char *filename, int xpos, int ypos) {
     // render the image onto the screen at given coordinates
     jpegRender(xpos, ypos);
   }
-  else {
-    Serial.println(F("Jpeg file format not supported!"));
-  }
+  //else {
+  //  Serial.println(F("Jpeg file format not supported!"));
+  //}
 }
+*/
 
-void Display::setupDraw() {
+/*void Display::setupDraw() {
   this->tft.drawLine(0, 0, 10, 0, TFT_MAGENTA);
   this->tft.drawLine(0, 0, 0, 10, TFT_GREEN);
   this->tft.drawLine(0, 0, 0, 0, TFT_CYAN);
-}
+}*/
 
-uint16_t xlast;
+/*uint16_t xlast;
 uint16_t ylast;
 uint32_t AH;
 void Display::drawStylus()
@@ -516,7 +472,7 @@ void Display::drawStylus()
   boolean pressed = tft.getTouch(&x, &y);
 
   if ((x <= 10) && (y <= 10) && (pressed)) {
-    Serial.println(F("Exit draw function"));
+    //Serial.println(F("Exit draw function"));
     this->draw_tft = false;
     this->exit_draw = true;
     return;
@@ -571,7 +527,7 @@ void Display::drawStylus()
     xlast = 0;
     ylast = 0;
   }
-}
+}*/
 
 //====================================================================================
 //   Decode and render the Jpeg image onto the TFT screen
@@ -649,7 +605,7 @@ void Display::jpegRender(int xpos, int ypos) {
 //   Print information decoded from the Jpeg image
 //====================================================================================
 void Display::jpegInfo() {
-
+/*
   Serial.println("===============");
   Serial.println("JPEG image info");
   Serial.println("===============");
@@ -663,7 +619,7 @@ void Display::jpegInfo() {
   Serial.print  ("MCU height :"); Serial.println(JpegDec.MCUHeight);
   Serial.println("===============");
   Serial.println("");
-  
+  */
 }
 
 //====================================================================================
@@ -809,20 +765,20 @@ void Display::listDir(fs::FS &fs, const char * dirname, uint8_t levels) {
 
 void Display::updateBanner(String msg)
 {
-  this->img.deleteSprite();
+  //this->img.deleteSprite();
   
-  this->img.setColorDepth(8);
+  //this->img.setColorDepth(8);
 
-  this->img.createSprite(SCREEN_WIDTH, TEXT_HEIGHT);
+  //this->img.createSprite(SCREEN_WIDTH, TEXT_HEIGHT);
 
   this->buildBanner(msg, current_banner_pos);
 
-  this->img.pushSprite(0, STATUS_BAR_WIDTH);
+  //this->img.pushSprite(0, STATUS_BAR_WIDTH);
 
-  current_banner_pos--;
+  //current_banner_pos--;
 
-  if (current_banner_pos <= 0)
-    current_banner_pos = SCREEN_WIDTH + 2;
+  //if (current_banner_pos <= 0)
+  //  current_banner_pos = SCREEN_WIDTH + 2;
 }
 
 
@@ -830,6 +786,13 @@ void Display::buildBanner(String msg, int xpos)
 {
   int h = TEXT_HEIGHT;
 
+  this->tft.fillRect(0, STATUS_BAR_WIDTH, SCREEN_WIDTH, TEXT_HEIGHT, TFT_BLACK);
+  this->tft.setFreeFont(NULL);           // Font 4 selected
+  this->tft.setTextSize(BANNER_TEXT_SIZE);           // Font size scaling is x1
+  this->tft.setTextColor(TFT_WHITE, TFT_BLACK);  // Black text, no background colour
+  this->showCenterText(msg, STATUS_BAR_WIDTH);
+
+  /*
   // We could just use fillSprite(color) but lets be a bit more creative...
 
   // Fill with rainbow stripes
@@ -840,7 +803,7 @@ void Display::buildBanner(String msg, int xpos)
   //img.fillCircle(SCREEN_WIDTH / 2, TEXT_HEIGHT / 2, 10, TFT_ORANGE);
 
   // Now print text on top of the graphics
-  img.setTextSize(2);           // Font size scaling is x1
+  img.setTextSize(BANNER_TEXT_SIZE);           // Font size scaling is x1
   img.setTextFont(0);           // Font 4 selected
   img.setTextColor(TFT_WHITE);  // Black text, no background colour
   img.setTextWrap(false);       // Turn of wrap so we can print past end of sprite
@@ -851,113 +814,8 @@ void Display::buildBanner(String msg, int xpos)
 
   img.setCursor(xpos - SCREEN_WIDTH, 2); // Print text at xpos - sprite width
   img.print(msg);
+  */
 }
-
-/*
-void Display::initLVGL() {
-  tick.attach_ms(LVGL_TICK_PERIOD, lv_tick_handler);
-  
-  lv_init();
-
-  lv_disp_buf_init(&disp_buf, buf, NULL, LV_HOR_RES_MAX * 10);
-
-  lv_disp_drv_t disp_drv;
-  lv_disp_drv_init(&disp_drv);
-  disp_drv.hor_res = WIDTH_1;
-  disp_drv.ver_res = HEIGHT_1;
-  disp_drv.flush_cb = my_disp_flush;
-  disp_drv.buffer = &disp_buf;
-  lv_disp_drv_register(&disp_drv);
-
-  lv_indev_drv_t indev_drv;
-  lv_indev_drv_init(&indev_drv);             
-  indev_drv.type = LV_INDEV_TYPE_POINTER;    
-  indev_drv.read_cb = my_touchpad_read;      
-  lv_indev_drv_register(&indev_drv);         
-}
-
-
-void Display::deinitLVGL() {
-  Serial.println(F("Deinit LVGL"));
-  //lv_deinit();
-}
-
-
-
-void Display::joinWiFiGFX(){
-
-  // Create one text area
-  ta1 = lv_textarea_create(lv_scr_act(), NULL);
-  lv_textarea_set_one_line(ta1, true);
-  lv_obj_set_width(ta1, LV_HOR_RES / 2 - 20);
-  lv_obj_set_pos(ta1, 5, 20);
-  //lv_ta_set_cursor_type(ta, LV_CURSOR_BLOCK);
-  lv_textarea_set_text(ta1, "");
-  lv_obj_set_event_cb(ta1, ta_event_cb);
-
-  // Create first label
-  lv_obj_t * ssid_label = lv_label_create(lv_scr_act(), NULL);
-  lv_label_set_text(ssid_label, "SSID:");
-  lv_obj_align(ssid_label, ta1, LV_ALIGN_OUT_TOP_LEFT, 0, 0);
-
-  // Create second text area
-  ta2 = lv_textarea_create(lv_scr_act(), ta1);
-  //lv_textarea_set_pwd_mode(ta2, true); // This shit makes it so backspace does not work
-  //lv_textarea_set_pwd_show_time(ta2, 1000);
-  lv_textarea_set_cursor_hidden(ta2, true);
-  lv_obj_align(ta2, NULL, LV_ALIGN_IN_TOP_RIGHT, -5, 20);
-
-  // Create second label
-  lv_obj_t * pw_label = lv_label_create(lv_scr_act(), NULL);
-  lv_label_set_text(pw_label, "Password:");
-  lv_obj_align(pw_label, ta2, LV_ALIGN_OUT_TOP_LEFT, 0, 0);
-
-  // Create a keyboard and apply the styles
-  kb = lv_keyboard_create(lv_scr_act(), NULL);
-  lv_obj_set_size(kb, LV_HOR_RES, LV_VER_RES / 2);
-  lv_obj_set_event_cb(kb, keyboard_event_cb);
-
-  // Focus it on one of the text areas to start
-  lv_keyboard_set_textarea(kb, ta1);
-  lv_keyboard_set_cursor_manage(kb, true);
-  
-}
-
-
-void keyboard_event_cb(lv_obj_t * keyboard, lv_event_t event){
-  extern Display display_obj;
-  lv_keyboard_def_event_cb(kb, event);
-  if(event == LV_EVENT_APPLY){
-    printf("LV_EVENT_APPLY\n");
-    //String ta1_text = lv_textarea_get_text(lv_keyboard_get_textarea(kb));
-    String ta1_text = lv_textarea_get_text(ta1);
-    String ta2_text = lv_textarea_get_text(ta2);
-    Serial.println(ta1_text);
-    Serial.println(ta2_text);
-    //joinWiFi(ta1_text, ta2_text);
-  }else if(event == LV_EVENT_CANCEL){
-    printf("LV_EVENT_CANCEL\n");
-    //lv_textarea_set_text(lv_keyboard_get_textarea(kb), "");
-    display_obj.deinitLVGL();
-    display_obj.exit_draw = true; // set everything back to normal
-  }
-}
-
-
-void ta_event_cb(lv_obj_t * ta, lv_event_t event)
-{
-  if(event == LV_EVENT_CLICKED) {
-    if(kb != NULL)
-      lv_keyboard_set_textarea(kb, ta);
-  }
-
-  //else if(event == LV_EVENT_INSERT) {
-  //  const char * str = lv_event_get_data();
-  //  if(str[0] == '\n') {
-  //    printf("Ready\n");
-  //  }
-  //}
-}*/
 
 void Display::main(uint8_t scan_mode)
 {  
@@ -967,3 +825,5 @@ void Display::main(uint8_t scan_mode)
   return;
 }
 // End SPIFFS_functions
+
+#endif

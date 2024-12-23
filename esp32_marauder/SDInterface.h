@@ -1,15 +1,23 @@
+#pragma once
+
 #ifndef SDInterface_h
 #define SDInterface_h
 
+#include "configs.h"
+
+#include "settings.h"
 #include "SD.h"
 #include "Buffer.h"
-#include "Display.h"
+#ifdef HAS_SCREEN
+  #include "Display.h"
+#endif
 #include <Update.h>
 
 extern Buffer buffer_obj;
-extern Display display_obj;
-
-#define SD_CS 12
+extern Settings settings_obj;
+#ifdef HAS_SCREEN
+  extern Display display_obj;
+#endif
 
 #ifdef KIT
   #define SD_DET 4
@@ -18,6 +26,9 @@ extern Display display_obj;
 class SDInterface {
 
   private:
+#if defined(MARAUDER_M5STICKC)
+  SPIClass *spiExt;
+#endif
     bool checkDetectPin();
 
   public:
@@ -27,18 +38,20 @@ class SDInterface {
     uint64_t cardSizeMB;
     //uint64_t cardSizeGB;
     bool supported = false;
-    bool do_save = true;
 
     String card_sz;
   
     bool initSD();
 
-    void addPacket(uint8_t* buf, uint32_t len);
-    void openCapture(String file_name = "");
+    LinkedList<String>* sd_files;
+
+    void listDir(String str_dir);
+    void listDirToLinkedList(LinkedList<String>* file_names, String str_dir = "/", String ext = "");
+    File getFile(String path);
     void runUpdate();
     void performUpdate(Stream &updateSource, size_t updateSize);
     void main();
-    //void savePacket(uint8_t* buf, uint32_t len);
+    bool removeFile(String file_path);
 };
 
 #endif

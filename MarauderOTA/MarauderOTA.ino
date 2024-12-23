@@ -1,3 +1,13 @@
+//#define MARAUDER_V4
+//#define MARAUDER_V6
+//#define MARAUDER_KIT
+//#define MARAUDER_MINI
+#define MARAUDER_FLIPPER
+
+#ifndef MARAUDER_FLIPPER
+  #define HAS_BT
+#endif
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
@@ -5,7 +15,9 @@
 #include <Update.h>
 #include "esp_wifi.h"
 #include "esp_wifi_types.h"
-#include "esp_bt.h"
+#ifdef HAS_BT
+  #include "esp_bt.h"
+#endif
 
 #define jquery_min_js_v3_2_1_gz_len 30178
 
@@ -69,7 +81,7 @@ PROGMEM const char* serverIndex =
 "Because the lack of an asynchronous webserver in this Arduino sketch like 'ESPAsyncWebServer', <br/>"
 "both file 'serverIndex' and 'jquery.min.js' can't be read from the webserver at the same time. <br/><br/>"
 "Your web browser probably requests those two files simultaneously and therefore <br/>"
-"the javascript file failed to load. By a refresh of this page, the browser cash has already <br/>"
+"the javascript file failed to load. By a refresh of this page, the browser cache has already <br/>"
 "load 'serverIndex' file, the web browser will do a second attempt to only read the javascript file. <br/>"
 "This second attempt, with an idle webserver, will be processed.<br/><br/>"
 "Long story short, press F5 (refresh web browser) before uploading your firmware. <br/><br/>"
